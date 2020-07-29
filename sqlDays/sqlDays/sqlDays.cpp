@@ -88,6 +88,8 @@ void process_day(dayClass day, unsigned long int begin, unsigned long int end)
 	std::vector<std::string> lowDays;
 	std::vector<std::string> highDays;
 	std::string pS;
+	std::stringstream ssl;
+	std::stringstream ssh;
 
 	mu.lock();
 	std::cout << "begin " << begin << " end " << end << std::endl;
@@ -128,29 +130,48 @@ void process_day(dayClass day, unsigned long int begin, unsigned long int end)
 
 		try
 		{
-			prep_stmt_l = con->prepareStatement("INSERT INTO low(name) VALUES (?) ON DUPLICATE KEY UPDATE count = count + 1;");
-			prep_stmt_h = con->prepareStatement("INSERT INTO high(name) VALUES (?) ON DUPLICATE KEY UPDATE count = count + 1;");
+			//prep_stmt_l = con->prepareStatement("INSERT INTO low(name) VALUES (?) ON DUPLICATE KEY UPDATE count = count + 1;");
+			//prep_stmt_h = con->prepareStatement("INSERT INTO high(name) VALUES (?) ON DUPLICATE KEY UPDATE count = count + 1;");
 
-			stmt->execute("START TRANSACTION;");
-			for (auto& s : lowDays)
+			//stmt->execute("START TRANSACTION;");
+			ssl << "INSERT INTO low (name) VALUES ";
+			for (long int i = 0; i < lowDays.size(); i++)
 			{
-
-				prep_stmt_l->setString(1, s);
-				prep_stmt_l->execute();
+				ssl << "('" << lowDays[i];
+				if (i < (lowDays.size() - 1))
+					ssl << "'),"; 
+				else
+					ssl << ")";
+				//prep_stmt_l->setString(1, s);
+				//prep_stmt_l->execute();
 			}
+			//ssl.seekp(-1, std::ios_base::end);
+			ssl << " ON DUPLICATE KEY UPDATE count = VALUES(count) + 1;";
+			//std::cout << ssl.str();
+			stmt->execute(ssl.str());
+			std::stringstream().swap(ssl);
 			//stmt->execute("COMMIT;");
 			lowDays.clear();
 
 			
 
 			//stmt->execute("START TRANSACTION;");
-			for (auto& s : highDays)
+			ssh << "INSERT INTO high (name) VALUES ";
+			for (long int i = 0; i < highDays.size(); i++)
 			{
-
-				prep_stmt_h->setString(1, s);
-				prep_stmt_h->execute();
+				ssh << "('" << highDays[i];
+				if (i < (highDays.size() - 1))
+					ssh << "'),";
+				else
+					ssh << "')";
+				//prep_stmt_l->setString(1, s);
+				//prep_stmt_l->execute();
 			}
-			stmt->execute("COMMIT;");
+			//ssh.seekp(-1, std::ios_base::end);
+			ssh << " ON DUPLICATE KEY UPDATE VALUES(count) = count + 1;";
+			stmt->execute(ssh.str());
+			std::stringstream().swap(ssh);
+			//stmt->execute("COMMIT;");
 			highDays.clear();
 
 		}
@@ -257,10 +278,10 @@ int main(int argc, char **argv)
 		con->setSchema("days");
 		stmt->execute("DROP TABLE IF EXISTS low");
 		stmt->execute("DROP TABLE IF EXISTS high");
-		stmt->execute("CREATE TABLE IF NOT EXISTS low(name CHAR(24) PRIMARY KEY, count FLOAT DEFAULT 0) ENGINE=InnoDB;");
-		stmt->execute("CREATE TABLE IF NOT EXISTS high(name CHAR(24) PRIMARY KEY, count FLOAT DEFAULT 0) ENGINE=InnoDB;");
+		stmt->execute("CREATE TABLE IF NOT EXISTS low(name CHAR(24) PRIMARY KEY, count INTEGER DEFAULT 0) ENGINE=InnoDB;");
+		stmt->execute("CREATE TABLE IF NOT EXISTS high(name CHAR(24) PRIMARY KEY, count INTEGER DEFAULT 0) ENGINE=InnoDB;");
 
-		ss << "mysql -u root --database=days --password=root -e \"";
+		/*ss << "mysql -u root --database=days --password=root -e \"";
 		ss << "LOAD DATA LOCAL INFILE ";
 		ss << "'07_08low.csv' ";
 		ss << "INTO TABLE high ";
@@ -270,10 +291,10 @@ int main(int argc, char **argv)
 		ss << "(name, count);\"";
 
 		std::cout << ss.str() << std::endl;
-		system(ss.str().c_str());
+		system(ss.str().c_str());*/
 		//stmt->execute(ss.str());
 
-		std::cout << "loaded " << std::endl;
+		//std::cout << "loaded " << std::endl;
 
 		outHFile.open("oh.csv");
 		res = stmt->executeQuery("SELECT name,count FROM low ORDER BY name ASC");
@@ -302,7 +323,7 @@ int main(int argc, char **argv)
 	int dayIdx = 0;
 	//format.trim({ ' ', '\t' });
 	//format.variable_columns(VariableColumnPolicy::IGNORE);
-	/*for (auto& filen : inputFileNames)
+	for (auto& filen : inputFileNames)
 	{
 		try
 		{
@@ -345,9 +366,8 @@ int main(int argc, char **argv)
 	}
 
 	std::vector<std::thread> t_threads;
-	*/
 
-	/*for (dayClass& d : oneDay)
+	for (dayClass& d : oneDay)
 	{
 		t_threads.push_back(std::thread(process_day, d, 0, d.hour.size() / 4));
 		t_threads.push_back(std::thread(process_day, d, d.hour.size() / 4, d.hour.size() / 2));
@@ -358,9 +378,7 @@ int main(int argc, char **argv)
 		{
 			t.join();
 		}
-	}*/
-
-	
+	}
 
 	time_t te = time(NULL);
 	endT = gmtime(&te);
