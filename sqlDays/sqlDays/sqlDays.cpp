@@ -78,8 +78,8 @@ void process_day(dayClass day, unsigned long int begin, unsigned long int end)
 	sql::Driver *t_driver;
 	t_driver = get_driver_instance();
 	sql::Connection *con;
-	sql::PreparedStatement  *prep_stmt_l;
-	sql::PreparedStatement  *prep_stmt_h;
+	//sql::PreparedStatement  *prep_stmt_l;
+	//sql::PreparedStatement  *prep_stmt_h;
 	sql::Statement *stmt;
 
 	float lowF;
@@ -108,9 +108,9 @@ void process_day(dayClass day, unsigned long int begin, unsigned long int end)
 		std::cout << ", SQLState: " << e.getSQLState() << " )" << std::endl;
 	}
 
-	for (int i = begin; i < end-1; i++)
+	for (int i = begin; i < end; i++)
 	{
-		for (int j = (i + 1); j < end; j++)
+		for (long int j = (i + 1); j < day.low.size(); j++) //day.low.size()
 		{
 			lowF = day.low[i] - day.low[j];
 			highF = day.high[i] - day.high[j];
@@ -126,7 +126,14 @@ void process_day(dayClass day, unsigned long int begin, unsigned long int end)
 				pS.append("-").append(day.hour[j]);
 				highDays.push_back(pS);
 			}
+			/*
+			mu.lock();
+			std::cout << begin << " " << day.hour[i] << "-" << day.hour[j] << std::endl;
+			mu.unlock();
+			*/
 		}
+
+		
 
 		try
 		{
@@ -134,48 +141,53 @@ void process_day(dayClass day, unsigned long int begin, unsigned long int end)
 			//prep_stmt_h = con->prepareStatement("INSERT INTO high(name) VALUES (?) ON DUPLICATE KEY UPDATE count = count + 1;");
 
 			//stmt->execute("START TRANSACTION;");
-			ssl << "INSERT INTO low (name) VALUES ";
-			for (long int i = 0; i < lowDays.size(); i++)
+			if (lowDays.size() > 0)
 			{
-				ssl << "('" << lowDays[i];
-				if (i < (lowDays.size() - 1))
-					ssl << "'), "; 
-				else
-					ssl << "')";
-				//prep_stmt_l->setString(1, s);
-				//prep_stmt_l->execute();
+				ssl << "INSERT INTO low (name) VALUES ";
+				for (long int k = 0; k < lowDays.size(); k++)
+				{
+					ssl << "('" << lowDays[k];
+					if (k < (lowDays.size() - 1))
+						ssl << "'), ";
+					else
+						ssl << "')";
+					//prep_stmt_l->setString(1, s);
+					//prep_stmt_l->execute();
+				}
+				//ssl.seekp(-1, std::ios_base::end);
+				ssl << " ON DUPLICATE KEY UPDATE count = count + 1;";
+				//ssl << ";";
+				//mu.lock();
+				//std::cout << ssl.str();
+				//mu.unlock();
+				stmt->execute(ssl.str());
+				std::stringstream().swap(ssl);
+				//stmt->execute("COMMIT;");
+				lowDays.clear();
 			}
-			//ssl.seekp(-1, std::ios_base::end);
-			ssl << " ON DUPLICATE KEY UPDATE count = count + 1;";
-			//ssl << ";";
-			//mu.lock();
-			//std::cout << ssl.str();
-			//mu.unlock();
-			stmt->execute(ssl.str());
-			std::stringstream().swap(ssl);
-			//stmt->execute("COMMIT;");
-			lowDays.clear();
 
-			
 
-			//stmt->execute("START TRANSACTION;");
-			ssh << "INSERT INTO high (name) VALUES ";
-			for (long int i = 0; i < highDays.size(); i++)
+			if (highDays.size() > 0)
 			{
-				ssh << "('" << highDays[i];
-				if (i < (highDays.size() - 1))
-					ssh << "'),";
-				else
-					ssh << "')";
-				//prep_stmt_l->setString(1, s);
-				//prep_stmt_l->execute();
+				//stmt->execute("START TRANSACTION;");
+				ssh << "INSERT INTO high (name) VALUES ";
+				for (long int k = 0; k < highDays.size(); k++)
+				{
+					ssh << "('" << highDays[k];
+					if (k < (highDays.size() - 1))
+						ssh << "'),";
+					else
+						ssh << "')";
+					//prep_stmt_l->setString(1, s);
+					//prep_stmt_l->execute();
+				}
+				//ssh.seekp(-1, std::ios_base::end);
+				ssh << " ON DUPLICATE KEY UPDATE count = count + 1;";
+				stmt->execute(ssh.str());
+				std::stringstream().swap(ssh);
+				//stmt->execute("COMMIT;");
+				highDays.clear();
 			}
-			//ssh.seekp(-1, std::ios_base::end);
-			ssh << " ON DUPLICATE KEY UPDATE count = count + 1;";
-			stmt->execute(ssh.str());
-			std::stringstream().swap(ssh);
-			//stmt->execute("COMMIT;");
-			highDays.clear();
 
 		}
 		catch (sql::SQLException &e) {
@@ -184,13 +196,13 @@ void process_day(dayClass day, unsigned long int begin, unsigned long int end)
 			std::cout << ", SQLState: " << e.getSQLState() << " )" << std::endl;
 		}
 
-		if (i % 60 == 0)
-			std::cout << i << std::endl;
+		if (i % 120 == 0)
+			std::cout << day.hour[i] << std::endl;
 	}
 
 	delete stmt;
-	delete prep_stmt_l;
-	delete prep_stmt_h;
+	//delete prep_stmt_l;
+	//delete prep_stmt_h;
 	delete con;
 
 }
@@ -282,7 +294,7 @@ int main(int argc, char **argv)
 
 		stmt->execute("CREATE SCHEMA IF NOT EXISTS days;");
 		con->setSchema("days");
-		//stmt->execute("DROP TABLE IF EXISTS low");
+		stmt->execute("DROP TABLE IF EXISTS low");
 		stmt->execute("DROP TABLE IF EXISTS high");
 		stmt->execute("CREATE TABLE IF NOT EXISTS low(name CHAR(24) PRIMARY KEY, count INTEGER DEFAULT 0) ENGINE=InnoDB;");
 		stmt->execute("CREATE TABLE IF NOT EXISTS high(name CHAR(24) PRIMARY KEY, count INTEGER DEFAULT 0) ENGINE=InnoDB;");
