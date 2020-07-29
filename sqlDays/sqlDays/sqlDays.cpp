@@ -139,15 +139,18 @@ void process_day(dayClass day, unsigned long int begin, unsigned long int end)
 			{
 				ssl << "('" << lowDays[i];
 				if (i < (lowDays.size() - 1))
-					ssl << "'),"; 
+					ssl << "'), "; 
 				else
-					ssl << ")";
+					ssl << "')";
 				//prep_stmt_l->setString(1, s);
 				//prep_stmt_l->execute();
 			}
 			//ssl.seekp(-1, std::ios_base::end);
-			ssl << " ON DUPLICATE KEY UPDATE count = VALUES(count) + 1;";
+			ssl << " ON DUPLICATE KEY UPDATE count = count + 1;";
+			//ssl << ";";
+			//mu.lock();
 			//std::cout << ssl.str();
+			//mu.unlock();
 			stmt->execute(ssl.str());
 			std::stringstream().swap(ssl);
 			//stmt->execute("COMMIT;");
@@ -168,7 +171,7 @@ void process_day(dayClass day, unsigned long int begin, unsigned long int end)
 				//prep_stmt_l->execute();
 			}
 			//ssh.seekp(-1, std::ios_base::end);
-			ssh << " ON DUPLICATE KEY UPDATE VALUES(count) = count + 1;";
+			ssh << " ON DUPLICATE KEY UPDATE count = count + 1;";
 			stmt->execute(ssh.str());
 			std::stringstream().swap(ssh);
 			//stmt->execute("COMMIT;");
@@ -180,6 +183,9 @@ void process_day(dayClass day, unsigned long int begin, unsigned long int end)
 			std::cout << " (MySQL error code: " << e.getErrorCode();
 			std::cout << ", SQLState: " << e.getSQLState() << " )" << std::endl;
 		}
+
+		if (i % 60 == 0)
+			std::cout << i << std::endl;
 	}
 
 	delete stmt;
@@ -276,7 +282,7 @@ int main(int argc, char **argv)
 
 		stmt->execute("CREATE SCHEMA IF NOT EXISTS days;");
 		con->setSchema("days");
-		stmt->execute("DROP TABLE IF EXISTS low");
+		//stmt->execute("DROP TABLE IF EXISTS low");
 		stmt->execute("DROP TABLE IF EXISTS high");
 		stmt->execute("CREATE TABLE IF NOT EXISTS low(name CHAR(24) PRIMARY KEY, count INTEGER DEFAULT 0) ENGINE=InnoDB;");
 		stmt->execute("CREATE TABLE IF NOT EXISTS high(name CHAR(24) PRIMARY KEY, count INTEGER DEFAULT 0) ENGINE=InnoDB;");
